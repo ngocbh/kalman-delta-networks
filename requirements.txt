@@ -1,0 +1,23 @@
+# Kalman Delta Networks - minimal Python requirements
+# Qualified with Python 3.11 and CUDA 12.8.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.8.0
+numpy
+einops
+transformers
+datasets==5.0.0
+lightning==2.1.2
+pytorch-lightning==2.1.2
+lightning-utilities==0.15.3
+wandb
+sentencepiece
+tokenizers
+typing_extensions
+torchdata==0.11.0
+ninja
+packaging
+
+# Install the CUDA packages after this file:
+# pip install --no-build-isolation "flash-attn==2.8.3"
+# pip install --no-build-isolation "flash-linear-attention @ git+https://github.com/fla-org/flash-linear-attention.git@4b02d15d6a68700181b180235be62a9fb95d2a38"

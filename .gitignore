@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+
+/docs/
+/scripts/convert_kdn_checkpoint.py
+/scripts/eval/
+/scripts/install/
+/scripts/tests/
+/scripts/train_kdn_1.3B_100B.local.sh
+/scripts/tsz1024x4k_100B_swa_gdn2.sh

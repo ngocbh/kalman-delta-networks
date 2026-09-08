@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools==79.0.1", "wheel==0.47.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kalman-delta-networks"
+version = "0.1.0"
+description = "CUDA and Triton implementations of Isotropic and Diagonal Kalman Delta Networks"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+keywords = [
+    "kalman-filter",
+    "linear-attention",
+    "delta-rule",
+    "language-model",
+    "pytorch",
+    "deep-learning",
+    "kalman-delta-networks",
+    "kdn",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Native CUDA dependencies are installed separately; see README.md.
+dependencies = [
+    "torch==2.8.0",
+    "numpy",
+    "einops",
+    "transformers",
+    "datasets==5.0.0",
+    "lightning==2.1.2",
+    "pytorch-lightning==2.1.2",
+    "lightning-utilities==0.15.3",
+    "wandb",
+    "sentencepiece",
+    "tokenizers",
+    "typing-extensions",
+    "torchdata==0.11.0",
+    "ninja",
+    "packaging",
+]
+
+[tool.setuptools]
+include-package-data = true
+[tool.setuptools.packages.find]
+include = ["lit_gpt*"]
