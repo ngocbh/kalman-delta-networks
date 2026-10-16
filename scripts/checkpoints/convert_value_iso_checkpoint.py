@@ -10,6 +10,13 @@ is fused, reshaped, or reordered, so the conversion is a pure key rename:
 Optimizer state is keyed by parameter position, which a rename does not
 disturb, so it is carried across untouched.
 
+Scope: this produces weights loadable by the released model for evaluation,
+inference, or export. It does NOT produce a checkpoint that `pretrain.py
+--resume` will accept -- research checkpoints predate this repo's root schema
+(they carry no `checkpoint_meta`) and resuming additionally needs the per-rank
+data states and the run-manifest/marker protocol. The script reports any root
+key delta it finds.
+
 The script is read-only by default; it reports what it would do. Pass --out to
 write a converted copy. It never writes in place and never overwrites.
 
@@ -44,6 +51,11 @@ MODEL_NAMES = {
     "value_iso_kdn_1.3B_q0_r0p01_isdk_fixedscale_learnmu_isoinit": "value_iso_kdn_1.3B",
     "swa_value_iso_kdn_1.3B_q0_r0p01_isdk_fixedscale_learnmu_isoinit": "swa_value_iso_kdn_1.3B",
 }
+
+# Root keys this repo's pretrain.py requires of a resumable checkpoint.
+RELEASE_ROOT_KEYS = frozenset(
+    {"model", "optimizer", "hparams", "iter_num", "step_count", "checkpoint_meta"}
+)
 
 
 def rename_key(key: str) -> str:
@@ -104,6 +116,14 @@ def main() -> int:
     print(f"  model tensors: {len(model_state)} ({changed} renamed)")
     if changed == 0:
         print("  nothing to rename -- this checkpoint already uses the released schema")
+
+    missing_root = sorted(RELEASE_ROOT_KEYS - set(checkpoint))
+    if missing_root:
+        print(
+            f"  note: root keys absent for pretrain.py --resume: {missing_root}. "
+            "The converted weights load into the released model, but this file "
+            "is not a resumable release checkpoint."
+        )
 
     hparams = checkpoint.get("hparams")
     if isinstance(hparams, dict):
