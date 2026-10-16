@@ -1,17 +1,20 @@
 # Kalman Delta Networks
 
-This repository provides production implementations of two
+This repository provides production implementations of three
 Kalman-inspired recurrent token mixers for causal language models:
 
 - **Isotropic KDN** (`iso_kdn`) tracks one uncertainty scalar per mixer
   head and applies a scalar gain along the key direction.
 - **Diagonal KDN** (`diag_kdn`) tracks uncertainty independently for every key
   channel and applies a vector-valued gain.
+- **Value-isotropic KDN** (`value_iso_kdn`) stays isotropic across key
+  coordinates but tracks an independent uncertainty scalar for every *value*
+  coordinate.
 
-Both mixers retain a full per-head associative memory matrix. “Diagonal” refers
-to the uncertainty approximation, not to the memory itself. The release
-contains fixed production kernels and independent PyTorch recurrence oracles,
-plus 1.3B-family language-model configurations.
+All three mixers retain a full per-head associative memory matrix. “Diagonal”
+and “isotropic” refer to the uncertainty approximation, not to the memory
+itself. The release contains fixed production kernels and independent PyTorch
+recurrence oracles, plus 1.3B-family language-model configurations.
 
 <p align="center">
   <img src="assets/kdn_architecture.png" alt="Kalman Delta Network architectures" width="100%" />
@@ -35,10 +38,12 @@ The variants differ in how they represent uncertainty and form $\kappa_t$:
 |---|---|---|---|
 | Isotropic KDN | One scalar per head | One scalar per head/token | $\kappa_t = \beta_t k_t$ |
 | Diagonal KDN | One value per key channel | One value per key channel/token | General vector $\kappa_t$ |
+| Value-isotropic KDN | One scalar per head/value channel | One value per value channel/token | $\kappa_t = \beta_t k_t$, with $\beta_t$ per value channel |
 
 The production paths live in
-[`lit_gpt/iso_kdn.py`](lit_gpt/iso_kdn.py) and
-[`lit_gpt/diag_kdn.py`](lit_gpt/diag_kdn.py). Their Triton kernels and
+[`lit_gpt/iso_kdn.py`](lit_gpt/iso_kdn.py),
+[`lit_gpt/diag_kdn.py`](lit_gpt/diag_kdn.py) and
+[`lit_gpt/value_iso_kdn.py`](lit_gpt/value_iso_kdn.py). Their Triton kernels and
 independent mathematical references are under
 [`lit_gpt/kdn_ops/`](lit_gpt/kdn_ops/).
 
@@ -48,13 +53,18 @@ independent mathematical references are under
 |---|---:|---:|---:|---:|
 | `iso_kdn_1.3B` | 18 | 2,304 | 18 × 128 | 1,449,848,592 |
 | `diag_kdn_1.3B` | 18 | 2,304 | 18 × 128 | 1,449,806,796 |
+| `value_iso_kdn_1.3B` | 18 | 2,304 | 18 × 128 | 1,449,847,944 |
+| `swa_value_iso_kdn_1.3B` | 18 | 2,304 | 18 × 128 | 1,448,146,116 |
+
+`swa_value_iso_kdn_1.3B` alternates value-isotropic KDN blocks with
+sliding-window attention; the other three use a KDN mixer in every block.
 
 The `1.3B` suffix names the approximately 1.302B-parameter transformer block
 stack. Untied token embeddings and the language-model head bring the complete
 model to approximately 1.45B parameters.
 
-All four configurations use a 32,000-token vocabulary, sequence length 4,096,
-LLaMA-style MLPs, fused RMSNorm, and a KDN mixer in every block.
+All configurations use a 32,000-token vocabulary, sequence length 4,096,
+LLaMA-style MLPs, and fused RMSNorm.
 
 ## Requirements
 
@@ -91,7 +101,7 @@ python -m pip check
 Set `WANDB_API_KEY`, then this command run the training on one 8-GPU node. The data directory must contain Parquet shards with a `text` column.
 
 ```bash
-MODEL=iso_kdn_1.3B  # or diag_kdn_1.3B
+MODEL=iso_kdn_1.3B  # or diag_kdn_1.3B, value_iso_kdn_1.3B, swa_value_iso_kdn_1.3B
 
 python pretrain.py \
   --model_name "$MODEL" \
@@ -114,10 +124,12 @@ To continue a run, rerun the same command with `--resume`.
 - [`lit_gpt/model.py`](lit_gpt/model.py): GPT backbone and mixer dispatch.
 - [`lit_gpt/iso_kdn.py`](lit_gpt/iso_kdn.py): Isotropic KDN layer.
 - [`lit_gpt/diag_kdn.py`](lit_gpt/diag_kdn.py): Diagonal KDN layer.
+- [`lit_gpt/value_iso_kdn.py`](lit_gpt/value_iso_kdn.py): Value-isotropic KDN layer.
 - [`lit_gpt/kdn_ops/`](lit_gpt/kdn_ops/): production kernels and PyTorch
   reference recurrences.
 - [`pretrain.py`](pretrain.py): distributed training driver and checkpoint
   protocol.
+- [`scripts/checkpoints/`](scripts/checkpoints/): checkpoint schema converters.
 
 ## Acknowledgements
 

@@ -100,7 +100,7 @@ class GPT(nn.Module):
     ) -> torch.Tensor:
         B, T = idx.size()
         use_kv_cache = input_pos is not None
-        if use_kv_cache and self.config.mixer_type in {"iso_kdn", "diag_kdn"}:
+        if use_kv_cache and self.config.mixer_type in {"iso_kdn", "diag_kdn", "value_iso_kdn"}:
             raise ValueError("KDN mixers do not support KV caching")
 
         block_size = self.config.block_size
@@ -180,7 +180,7 @@ class GPT(nn.Module):
     def build_kv_caches(
         self, idx: torch.Tensor, max_seq_length: int, rope_cache_length: Optional[int]
     ) -> List[Optional[KVCache]]:
-        if self.config.mixer_type in {"iso_kdn", "diag_kdn"}:
+        if self.config.mixer_type in {"iso_kdn", "diag_kdn", "value_iso_kdn"}:
             raise ValueError("KDN mixers do not support KV caching")
         B = idx.size(0)
         heads = 1 if self.config.n_query_groups == 1 else self.config.n_query_groups
@@ -221,6 +221,7 @@ class Block(nn.Module):
         self.use_gdn2 = layer_idx % config.gdn2_per_layer == 0 if config.gdn2_per_layer > 0 else False
         self.is_iso_kdn = self.use_gdn2 and config.mixer_type == "iso_kdn"
         self.is_diag_kdn = self.use_gdn2 and config.mixer_type == "diag_kdn"
+        self.is_value_iso_kdn = self.use_gdn2 and config.mixer_type == "value_iso_kdn"
         if self.use_gdn2:
             if config.mixer_type == "iso_kdn":
                 from lit_gpt.iso_kdn import IsotropicKalmanDeltaNetwork
@@ -250,6 +251,22 @@ class Block(nn.Module):
                     norm_eps=config.norm_eps,
                     layer_idx=layer_idx,
                 )
+            elif config.mixer_type == "value_iso_kdn":
+                from lit_gpt.value_iso_kdn import ValueIsotropicKalmanDeltaNetwork
+
+                self.attn = ValueIsotropicKalmanDeltaNetwork(
+                    hidden_size=config.n_embd,
+                    head_dim=config.head_size,
+                    num_heads=config.n_head,
+                    expand_v=1.0,
+                    omega_min=config.kdn_omega_min,
+                    r_min=config.kdn_r_min,
+                    info_scale=config.kdn_info_scale,
+                    learnable_mu=config.kdn_learnable_mu,
+                    gain_init=config.kdn_gain_init,
+                    norm_eps=config.norm_eps,
+                    layer_idx=layer_idx,
+                )
             elif config.mixer_type == "gdn2":
                 self.attn = GatedDeltaNet2(hidden_size=config.n_embd)
             else:
@@ -272,7 +289,7 @@ class Block(nn.Module):
         kv_cache: Optional[KVCache] = None,
     ) -> Tuple[torch.Tensor, Optional[KVCache]]:
         n_1 = self.norm_1(x)
-        if self.is_iso_kdn or self.is_diag_kdn:
+        if self.is_iso_kdn or self.is_diag_kdn or self.is_value_iso_kdn:
             h, _, new_kv_cache = self.attn(
                 n_1,
                 attention_mask=mask,

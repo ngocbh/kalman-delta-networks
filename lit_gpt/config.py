@@ -35,6 +35,10 @@ class Config:
     kdn_omega_min: float = 0.0
     kdn_r_min: float = 0.01
     kdn_info_scale: Optional[float] = None
+    # Value-isotropic KDN only: whether the [H,V] initial precision is learned,
+    # and whether the process-noise output map starts isotropic (zeroed).
+    kdn_learnable_mu: bool = True
+    kdn_gain_init: str = "iso"
     nope: bool = False
     mamba_init: bool = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
@@ -180,6 +184,64 @@ configs = [
         norm_eps=1e-5,
         _mlp_class="LLaMAMLP",
         intermediate_size=7128,
+        local_window=2048,
+        mamba_init=True,
+    ),
+    # ---------------- Value-isotropic KDN -----------------------------------
+    # Keeps the Diagonal KDN peripheral count and replaces its [H] initial
+    # precision with [H,V]. Research arm name:
+    # value_iso_kdn_1.3B_q0_r0p01_isdk_fixedscale_learnmu_isoinit
+    dict(
+        org="yale",
+        name="value_iso_kdn_1.3B",  # Total 1,449,847,944
+        block_size=4096,
+        vocab_size=32000,
+        padding_multiple=64,
+        gdn2_per_layer=1,
+        mixer_type="value_iso_kdn",
+        kdn_omega_min=0.0,
+        kdn_r_min=0.01,
+        kdn_info_scale=128.0,
+        kdn_learnable_mu=True,
+        kdn_gain_init="iso",
+        n_layer=18,
+        n_head=18,
+        n_embd=2304,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="FusedRMSNorm",
+        norm_eps=1e-5,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=7128,
+        local_window=2048,
+        mamba_init=True,
+    ),
+    # Alternating value-isotropic KDN / sliding-window-attention arm. Research
+    # arm name: swa_value_iso_kdn_1.3B_q0_r0p01_isdk_fixedscale_learnmu_isoinit
+    dict(
+        org="yale",
+        name="swa_value_iso_kdn_1.3B",  # Total 1,448,146,116
+        block_size=4096,
+        vocab_size=32000,
+        padding_multiple=64,
+        gdn2_per_layer=2,
+        mixer_type="value_iso_kdn",
+        kdn_omega_min=0.0,
+        kdn_r_min=0.01,
+        kdn_info_scale=128.0,
+        kdn_learnable_mu=True,
+        kdn_gain_init="iso",
+        n_layer=18,
+        n_head=18,
+        n_embd=2304,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        _norm_class="FusedRMSNorm",
+        norm_eps=1e-5,
+        _mlp_class="LLaMAMLP",
+        intermediate_size=7248,
         local_window=2048,
         mamba_init=True,
     ),
